@@ -16,10 +16,14 @@ def create_trip_table():
     c.execute("""
     CREATE TABLE IF NOT EXISTS trips (
                         trip_ID INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+                        origin TEXT NOT NULL,
                         destination TEXT NOT NULL,
                         start_date TEXT,
-                        end_date TEXT, 
-                        occasion TEXT
+                        end_date TEXT,
+                        start_time TEXT,
+                        end_time TEXT, 
+                        occasion TEXT,
+                        manager_ID INTEGER
     )
     """)
     conn.commit()
@@ -44,14 +48,54 @@ def create_trip_users_table():
     conn.commit()
     conn.close()
 
-def add_trip(destination, start_date, end_date, occasion, user_ids):
+####not used yet#### probably not necessary
+def create_manager_trip_table():
+    conn = connect()
+    conn.execute("PRAGMA foreign_keys = ON;")
+    c = conn.cursor()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS manager_trips (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        manager_ID INTEGER NOT NULL
+                        trip_ID NOT NULL
+                        UNIQUE (manager_ID, trip_ID),
+                        FOREIGN KEY(manager_ID) REFERENCES users(manager_ID) ON DELETE CASCADE,
+                        FOREIGN KEY(trip_ID) REFERENCES trips(trip_ID) ON DELETE CASCADE
+    ) 
+    """)
+    conn.commit()
+    conn.close()
+
+####not used yet#### probably not necessary
+def get_trips_for_current_manager():
+    if "user_ID" not in st.session_state:
+        return []
+
+    manager_id = int(st.session_state["user_ID"])
+
+    conn = connect()
+    c = conn.cursor()
+    c.execute("""
+        SELECT destination, start_date, end_date, occasion
+        FROM trips t
+        JOIN manager_trips m
+        ON t.trip_ID = m.trip_ID
+        WHERE manager_ID = ?
+        ORDER BY start_date
+    """, (manager_id,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def add_trip(origin, destination, start_date, end_date, start_time_str, end_time_str, occasion, manager_ID, user_ids):
     conn = connect()
     conn.execute("PRAGMA foreign_keys = ON;")
     c = conn.cursor()
     try:
+        manager_ID = int(st.session_state["user_ID"])
         c.execute(
-            "INSERT INTO trips (destination, start_date, end_date, occasion) VALUES (?, ?, ?, ?)",
-            (destination, start_date, end_date, occasion)
+            "INSERT INTO trips (origin, destination, start_date, end_date, start_time, end_time, occasion, manager_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (origin, destination, start_date, end_date, start_time_str, end_time_str, occasion, manager_ID)
         )
         if user_ids:
             trip_ID = c.lastrowid
@@ -85,17 +129,23 @@ def del_trip(deleted_tripID: int):
 def create_trip_dropdown(title: str = "Create new trip"):
     with st.expander(title, expanded=False):
         with st.form("Create a trip", clear_on_submit=True):
+            origin = st.text_input("Origin")
             destination = st.text_input("Destination")
             start_date = st.date_input("Departure")
             end_date = st.date_input("Return")
+            start_time = st.time_input("Start Time")
+            end_time = st.time_input("End Time")
+            start_time_str = start_time.strftime("%H:%M")
+            end_time_str = end_time.strftime("%H:%M")
             occasion = st.text_input("Occasion")
+            manager_ID = int(st.session_state["user_ID"])
 
             conn = connect()
             user_df = pd.read_sql_query("""SELECT u.user_ID, u.username FROM users u 
                                         JOIN roles r ON u.role = r.role 
                                         WHERE r.sortkey < 3
                                         AND u.manager_ID = ? 
-                                        ORDER BY username""", conn, params=(int(st.session_state["user_ID"]),),
+                                        ORDER BY username""", conn, params=(manager_ID,),
             )
             conn.close()
 
@@ -110,7 +160,7 @@ def create_trip_dropdown(title: str = "Create new trip"):
             if not destination:
                 st.error("Destination must not be empty.")
             else:
-                add_trip(destination, start_date, end_date, occasion, user_ids)
+                add_trip(origin, destination, start_date, end_date, start_time_str, end_time_str, occasion, manager_ID, user_ids)
                 st.success("Trip saved!")
                 time.sleep(0.5)
                 st.rerun()
@@ -138,11 +188,13 @@ def del_trip_dropdown(title: str = "Delete trip"):
 #trip table overview
 def trip_list_view():
     conn = connect()
+    manager_ID = int(st.session_state["user_ID"])
     trip_df = pd.read_sql_query("""
-        SELECT trip_ID, destination, start_date, end_date, occasion
+        SELECT trip_ID, origin, destination, start_date, end_date, start_time, end_time, occasion
         FROM trips
+        WHERE manager_ID = ?
         ORDER BY start_date
-    """, conn)
+    """, conn, params=(manager_ID,))
     conn.close()
 
     if trip_df.empty:
@@ -152,13 +204,15 @@ def trip_list_view():
     #loop all trips
     for _, row in trip_df.iterrows():
         with st.expander(
-            f"{row.trip_ID} — {row.destination} ({row.start_date} → {row.end_date})",
+            f"{row.trip_ID} — {row.origin} → {row.destination} ({row.start_date} → {row.end_date})",
             expanded=False
         ):
             #list details
             st.write("**Occasion:**", row.occasion)
-            st.write("**Start:**", row.start_date)
-            st.write("**End:**", row.end_date)
+            st.write("**Start Date:**", row.start_date)
+            st.write("**End Date:**", row.end_date)
+            st.write("**Start Time:**", row.start_time)
+            st.write("**End Time:**", row.end_time)
 
             #load participants into table
             conn = connect()
