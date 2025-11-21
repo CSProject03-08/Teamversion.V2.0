@@ -591,4 +591,3 @@ def get_users_under_me() -> pd.DataFrame | None:
     conn.close()
 
     return pd.DataFrame(rows, columns=["username", "email", "role", "sortkey", "manager_ID"])
-#small change
