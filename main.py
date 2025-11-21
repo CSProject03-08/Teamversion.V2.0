@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from db.db_functions_users import create_tables, add_user, get_user_by_credentials, get_role_sortkey, register_main
+from db.db_functions_users import create_tables, add_user, get_user_by_credentials, get_role_sortkey, register_main, get_user_ID, get_manager_ID
 
 ### basic page settings ###
 st.set_page_config(page_title="Login", layout="centered", initial_sidebar_state="collapsed")
@@ -29,7 +29,9 @@ if submitted:
         st.session_state["username"] = uname
         st.session_state["role"] = role
         role_sortkey = get_role_sortkey(role)
-        st.session_state["role_sortkey"] =  role_sortkey
+        st.session_state["role_sortkey"] = role_sortkey
+        st.session_state["user_ID"] = get_user_ID(uname)
+        st.session_state["manager_ID"] = get_manager_ID(uname)
         st.success(f"Welcome {uname}! 🎉 Role: {role}")
         time.sleep(1)
         if role == "Administrator":
