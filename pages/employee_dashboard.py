@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 
-from db.db_functions_users_KT import edit_own_profile
-from db.db_functions_usertrips_KT import get_user_trips
+from db.db_functions_users import edit_own_profile
+from db.db_functions_usertrips import get_user_trips
 
 # --- Page setup ---
 st.set_page_config(page_title="Employee Dashboard", layout="wide")

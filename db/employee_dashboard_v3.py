@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date
 import sqlite3
 
-from db.db_functions_usertrips import get_user_trips
+from db.db_functions_user_trips import get_user_trips
 
 # --- Page setup ---
 st.set_page_config(page_title="Employee Dashboard", layout="wide")
@@ -29,8 +29,8 @@ trips = get_user_trips(user_id=st.session_state["user_ID"])
 if trips is None or trips.empty:
         st.info("You have no trips recorded yet.")
 else:
-        trips["start_date"] = pd.to_datetime(trips["start_date"])
-        trips["end_date"] = pd.to_datetime(trips["end_date"])
+        trips["date_start"] = pd.to_datetime(trips["date_start"])
+        trips["date_end"] = pd.to_datetime(trips["date_end"])
 
         # --- Calendar filter ---
         st.markdown("### 📅 Filter trips by date range")
@@ -46,19 +46,15 @@ else:
         else:
             start_date = end_date = date_range
 
-        # Convert dates to pandas datetime for comparison
-        start_date = pd.to_datetime(start_date)
-        end_date = pd.to_datetime(end_date)
-
         # Filter trips that overlap with the chosen date(s)
-        mask = (trips["start_date"] <= end_date) & (trips["end_date"] >= start_date)
-        filtered = trips.loc[mask].sort_values("start_date", ascending=False)
+        mask = (trips["date_start"] <= end_date) & (trips["date_end"] >= start_date)
+        filtered = trips.loc[mask].sort_values("date_start", ascending=False)
 
         if filtered.empty:
             st.warning("No trips found for the selected date(s).")
         else:
             st.dataframe(
-                filtered[["trip_ID", "destination", "start_date", "end_date", "occasion"]],
+                filtered[["destination", "date_start", "date_end", "budget", "status"]],
                 use_container_width=True,
                 hide_index=True
             )

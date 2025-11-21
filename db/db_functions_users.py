@@ -2,14 +2,20 @@ import sqlite3
 import time
 import streamlit as st
 import pandas as pd
+
 DB_USERS = "db/users.db"
 
-### Connecting to the database users.db ###
+# -------------------------
+# BASIC CONNECTION
+# -------------------------
 def connect():
     return sqlite3.connect(DB_USERS)
 
-### Creating necessary tables for different role in main.py ###
+# -------------------------
+# TABLE CREATION
+# -------------------------
 def create_tables():
+    """Create users + roles tables if they don't exist."""
     conn = connect()
     c = conn.cursor()
 
@@ -44,19 +50,16 @@ def create_tables():
     conn.commit()
     conn.close()
 
-### we use user_ID of the manager, to add their user_ID to the users they create with another column manager_id, so manager only have access to these users, they've created ###
+# -------------------------
+# HELPERS
+# -------------------------
 def get_user_ID(username: str):
     conn = connect()
     c = conn.cursor()
-
     c.execute("SELECT user_ID FROM users WHERE username = ?", (username,))
     row = c.fetchone()
-
     conn.close()
-
-    if row:
-        return row[0]
-    return None
+    return row[0] if row else None
 
 def get_manager_ID(username: str):
     conn = connect()
@@ -66,8 +69,11 @@ def get_manager_ID(username: str):
     conn.close()
     return row[0] if row else None
 
-### Adding users ###
+# -------------------------
+# ADD / AUTHENTICATE USERS
+# -------------------------
 def add_user(username, password, email, role):
+    """Add a user; manager_ID is current user's ID (if any)."""
     conn = connect()
     c = conn.cursor()
     manager_ID = st.session_state.get("user_ID", None)
@@ -83,19 +89,21 @@ def add_user(username, password, email, role):
     finally:
         conn.close()
 
-### Comparison from inputs to databank ###
 def get_user_by_credentials(username, password):
+    """
+    Return (user_ID, username, role) for a valid login or None.
+    IMPORTANT: user_ID is now included so we can store it in session_state.
+    """
     conn = connect()
     c = conn.cursor()
     c.execute(
-        "SELECT user_ID, role FROM users WHERE username = ? AND password = ?",
+        "SELECT user_ID, username, role FROM users WHERE username = ? AND password = ?",
         (username, password)
     )
     user = c.fetchone()
     conn.close()
     return user
 
-### Assign sortkey to roles for user management ###
 def get_role_sortkey(role):
     conn = sqlite3.connect(DB_USERS)
     c = conn.cursor()
@@ -104,7 +112,9 @@ def get_role_sortkey(role):
     conn.close()
     return data
 
-### List of all users under own role_sortkey ###
+# -------------------------
+# LISTING + MANAGEMENT HELPERS
+# -------------------------
 def list_roles_editable():
     current_sortkey = st.session_state["role_sortkey"]
     conn = sqlite3.connect(DB_USERS)
@@ -121,7 +131,6 @@ def list_roles_editable():
     conn.close()
     return roles
 
-### returns all users which the manager has created ###
 def get_users_for_current_manager():
     if "user_ID" not in st.session_state:
         return []
@@ -140,7 +149,9 @@ def get_users_for_current_manager():
     conn.close()
     return rows
 
-### Dropdown for manager page to register someone ###
+# -------------------------
+# MANAGER: REGISTER / DELETE / EDIT USERS
+# -------------------------
 def register_user_dropdown(title: str = "Register new user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to add new users")
@@ -183,7 +194,6 @@ def register_user_dropdown(title: str = "Register new user"):
             except Exception as e:
                 st.error(f"Unexpected Error: {e}")
 
-### Dropdown for admin page to register someone ###
 def register_user_dropdown_admin(title: str = "Register new user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to add new users")
@@ -227,8 +237,6 @@ def register_user_dropdown_admin(title: str = "Register new user"):
             except Exception as e:
                 st.error(f"Unexpected Error: {e}")
 
-
-### Dropdown for manager page to delete someone ###
 def del_user_dropdown(title: str = "Delete user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to delete users.")
@@ -239,7 +247,7 @@ def del_user_dropdown(title: str = "Delete user"):
     c = conn.cursor()
 
     c.execute("""
-        SELECT u.user_ID, u.role
+        SELECT u.username, u.role
         FROM users u
         JOIN roles r ON u.role = r.role
         WHERE r.sortkey < ? 
@@ -268,7 +276,6 @@ def del_user_dropdown(title: str = "Delete user"):
             time.sleep(2)
             st.rerun()
 
-### Dropdown for Admin page to delete someone ###
 def del_user_dropdown_admin(title: str = "Delete user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to delete users.")
@@ -307,7 +314,6 @@ def del_user_dropdown_admin(title: str = "Delete user"):
             time.sleep(2)
             st.rerun()
 
-### Dropdown for manager page to edit existing person ###
 def edit_user_dropdown(title: str = "Edit user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to edit users.")
@@ -353,10 +359,10 @@ def edit_user_dropdown(title: str = "Edit user"):
             col1, col2 = st.columns(2)
             with col1:
                 new_username = st.text_input("Username", value=username)
-                new_email = st.text_input("E-Mail", value=email)
+                new_email    = st.text_input("E-Mail", value=email)
             with col2:
                 new_password = st.text_input("Password", value=password, type="password")
-                new_role = st.text_input("Role", value=role)  
+                new_role     = st.text_input("Role", value=role)  
 
             submitted = st.form_submit_button("Save changes")
 
@@ -375,7 +381,6 @@ def edit_user_dropdown(title: str = "Edit user"):
             time.sleep (2)
             st.rerun()
 
-### Dropdown for Admin page to edit existing person ###
 def edit_user_dropdown_admin(title: str = "Edit user"):
     if "role_sortkey" not in st.session_state:
         st.warning("You're not authorized to edit users.")
@@ -453,7 +458,9 @@ def edit_user_dropdown_admin(title: str = "Edit user"):
             time.sleep(1.5)
             st.rerun()
 
-### Dropdown for main page to register as manager ###
+# -------------------------
+# REGISTER MANAGER ON MAIN PAGE
+# -------------------------
 def register_main(title: str = "Register as manager"):
     with st.expander(title, expanded=False):
         with st.form("register_main_form"):
@@ -507,7 +514,9 @@ def register_main(title: str = "Register as manager"):
             except Exception as e:
                 st.error(f"Unexpected error: {e}")
 
-### Input window to change user data in users.db ###
+# -------------------------
+# EDIT OWN PROFILE
+# -------------------------
 def edit_own_profile(title: str = "My profile"):
     if "username" not in st.session_state:
         st.warning("Log in first.")
@@ -530,7 +539,7 @@ def edit_own_profile(title: str = "My profile"):
     st.caption(f"Role: **{role}** (is not editable)")
 
     with st.form("edit_self_form"):
-        new_username = st.text_input("Username", value=username, disabled = True)
+        new_username = st.text_input("Username", value=username, disabled=True)
         new_email    = st.text_input("E-Mail", value=email or "")
 
         st.markdown("**Passwort ändern (optional)**")
@@ -572,7 +581,9 @@ def edit_own_profile(title: str = "My profile"):
     st.success("Profile has been updated")
     st.rerun()
 
-### Creates table for admin dashboard to see all registered managers/users ###
+# -------------------------
+# ADMIN OVERVIEW TABLE
+# -------------------------
 def get_users_under_me() -> pd.DataFrame | None:
     if "role_sortkey" not in st.session_state:
         return None

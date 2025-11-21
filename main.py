@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from db.db_functions_users_KT import create_tables, add_user, get_user_by_credentials, get_role_sortkey, register_main
+from db.db_functions_users import create_tables, add_user, get_user_by_credentials, get_role_sortkey, register_main
 from db.db_functions_trips import create_trip_table, create_trip_users_table
 
 ### basic page settings ###
