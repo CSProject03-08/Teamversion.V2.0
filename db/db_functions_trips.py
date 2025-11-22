@@ -11,7 +11,7 @@ DB_PATH = os.path.join(DB_DIR, "users.db")
 
 ### Connecting to the database trips.db ###
 def connect():
-    return sqlite3.connect(DB_USERS)
+    return sqlite3.connect(DB_PATH)
 
 def create_trip_table():
     conn = connect()
