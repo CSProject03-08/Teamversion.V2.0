@@ -197,8 +197,9 @@ def trip_list_view():
         SELECT trip_ID, origin, destination, start_date, end_date, start_time, end_time, occasion
         FROM trips
         WHERE manager_ID = ?
+        AND ? <= end_date
         ORDER BY start_date
-    """, conn, params=(manager_ID,))
+    """, conn, params=(manager_ID, date.today()))
     conn.close()
 
     if trip_df.empty:
