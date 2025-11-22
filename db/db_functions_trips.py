@@ -302,3 +302,66 @@ def trip_list_view():
                     st.success("Participants updated!")
                     time.sleep(0.5)
                     st.rerun()
+
+def past_trip_list_view():
+
+    st.subheader("Past trips")
+
+    conn = connect()
+    manager_ID = int(st.session_state["user_ID"])
+    trip_df = pd.read_sql_query("""
+        SELECT trip_ID, origin, destination, start_date, end_date, start_time, end_time, occasion
+        FROM trips
+        WHERE manager_ID = ?
+        AND ? > end_date
+        ORDER BY start_date
+    """, conn, params=(manager_ID, date.today()))
+    conn.close()
+
+    if trip_df.empty:
+        st.info("No trips available.")
+        return
+
+    #loop all trips
+    for _, row in trip_df.iterrows():
+        with st.expander(
+            f"{row.trip_ID} — {row.origin} → {row.destination} ({row.start_date} → {row.end_date})",
+            expanded=False
+        ):
+            #list details
+            st.write("**Occasion:**", row.occasion)
+            st.write("**Start Date:**", row.start_date)
+            st.write("**End Date:**", row.end_date)
+            st.write("**Start Time:**", row.start_time)
+            st.write("**End Time:**", row.end_time)
+
+            #load participants into table
+            conn = connect()
+            participants = pd.read_sql_query("""
+                SELECT u.username, u.email
+                FROM users u
+                JOIN user_trips ut ON ut.user_ID = u.user_ID
+                WHERE ut.trip_ID = ?
+                ORDER BY u.username
+            """, conn, params=(row.trip_ID,))
+            conn.close()
+
+            st.markdown("**Participants:**")
+            st.dataframe(participants, hide_index=True, use_container_width=True)
+
+    with st.form("Delete past trips"):
+        deleted = st.form_submit_button("Delete past trips")
+
+        if deleted:
+            conn = connect()
+            c = conn.cursor()
+            manager_ID = int(st.session_state["user_ID"])
+            c.execute("""DELETE FROM trips 
+                WHERE manager_id = ?
+                AND ? > end_date
+            """, (manager_ID, date.today()))
+            conn.commit()
+            conn.close()
+            st.success("Deleted past trips!")
+            time.sleep(0.5)
+            st.rerun()
